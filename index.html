@@ -252,7 +252,7 @@
       tempVal.textContent = `${temp.toFixed(1)} °C`;
       pressureVal.textContent = `${pressure.toFixed(1)} bar`;
 
-      // 通道效應判定
+// 1. 通道效應判定
       const fineThreshold = 280;
       let channelingRisk = '低';
       let channelingDesc = '粉餅萃取阻力均勻';
@@ -274,9 +274,9 @@
         channelingRisk === '極高' ? 'text-red-500' : channelingRisk === '中等' ? 'text-amber-400' : 'text-emerald-400'
       }`;
 
-      // 校準後的水力阻力與流速動力學
+      // 2. 精確數值積分校準：380μm / 93°C / 9 bar 精準對齊 36.0g 產出與 20.1% EY
       const puckCompaction = 1.0 + Math.max(0, pressure - 8.5) * 0.22;
-      const hydraulicResistance = Math.pow(460 / grind, 2.8) * puckCompaction;
+      const hydraulicResistance = Math.pow(557 / grind, 2.8) * puckCompaction; // 阻力常數校準為 557
       const baseFlowRate = (pressure / (hydraulicResistance * 3.6)) * 1.6;
 
       const flowPoints = [];
@@ -296,7 +296,8 @@
         if (t > 0) {
           totalLiquidOut += currentFlow;
           const extractionEfficiency = Math.max(0, (28 - (dissolvedSolutes / dose) * 100) / 28);
-          const deltaSolute = 0.088 * currentFlow * tempFactor * grindSurfaceFactor * extractionEfficiency * channelingPenalty;
+          // 溶出速率常數校準為 0.174
+          const deltaSolute = 0.174 * currentFlow * tempFactor * grindSurfaceFactor * extractionEfficiency * channelingPenalty;
           dissolvedSolutes += deltaSolute;
         }
 
@@ -311,18 +312,17 @@
       statYield.textContent = `${totalLiquidOut.toFixed(1)} g`;
       statFlow.textContent = `${avgFlow.toFixed(2)} ml/s`;
 
-      // 風味平衡雷達矩陣
+      // 3. 歸一化風味對稱五邊形矩陣（黃金點時各軸均為 ~9.0）
       const eyDeviation = Math.abs(finalEY - 20.1);
       const tempDeviation = Math.abs(temp - 93.0);
 
-      let sweetness = Math.max(1, 9.5 - eyDeviation * 1.8 - (channelingRisk === '極高' ? 3.0 : 0));
-      let acidity = Math.max(1, 8.8 - (finalEY - 20.1) * 0.6 - (temp - 93.0) * 0.3);
-      let bitterness = Math.max(1, 8.5 - Math.max(0, finalEY - 20.1) * 0.9 - Math.max(0, temp - 93.0) * 0.4);
-      if (channelingRisk === '極高') bitterness -= 2.5;
+      let acidity = Math.max(1.0, Math.min(10.0, 9.0 - (finalEY - 20.1) * 0.8 - (temp - 93.0) * 0.3));
+      let sweetness = Math.max(1.0, Math.min(10.0, 9.0 - (eyDeviation * 1.8) - (channelingRisk === '極高' ? 3.0 : 0)));
+      let bitterness = Math.max(1.0, Math.min(10.0, 9.0 + (finalEY - 20.1) * 0.8 + (temp - 93.0) * 0.4 - (channelingRisk === '極高' ? 2.5 : 0)));
 
       const tds = (dissolvedSolutes / Math.max(10, totalLiquidOut)) * 100;
-      let body = Math.min(9.5, Math.max(2, (tds * 0.65) + (pressure * 0.3)));
-      let balance = Math.max(1, 9.6 - (eyDeviation * 1.2) - (tempDeviation * 0.2) - (channelingRisk === '極高' ? 3.0 : 0));
+      let body = Math.max(1.0, Math.min(10.0, 9.0 - Math.abs(tds - 10.0) * 0.8 - Math.abs(pressure - 9.0) * 0.4));
+      let balance = Math.max(1.0, Math.min(10.0, 9.0 - (eyDeviation * 1.2) - (tempDeviation * 0.2) - Math.abs(acidity - bitterness) * 0.4 - (channelingRisk === '極高' ? 3.0 : 0)));
 
       if (finalEY < 18.0) {
         statusBadge.textContent = '萃取狀態：萃取不足 (Under-extracted) — 偏酸、尖銳、水感';
