@@ -1,8 +1,6 @@
 # Espresso Extraction Dynamics Lab
 
 [![Live Demo](https://img.shields.io/badge/Demo-GitHub%20Pages-brightgreen?style=flat-square)](https://leetcook100.github.io/espresso-extraction-dynamics/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg?style=flat-square)](LICENSE)
-[![Zero Dependency](https://img.shields.io/badge/Dependencies-Vanilla%20JS-blue?style=flat-square)](#tech-stack)
 
 An interactive, in-browser hydrodynamic and extraction kinetics simulator for espresso brewing. This project models fluid resistance, non-linear puck compaction, thermal solute transport, and multi-dimensional sensory balance in real time.
 
