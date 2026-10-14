@@ -18,4 +18,4 @@ This laboratory models the non-linear relationship between mechanical grinding p
 - [Tailwind CSS](https://tailwindcss.com/) for UI architecture
 
 ## Live Demo
-Run directly in your browser via GitHub Pages: [Your-Pages-Link-Here]
+Run directly in your browser via GitHub Pages: [https://leetcook100.github.io/espresso-extraction-dynamics/]
