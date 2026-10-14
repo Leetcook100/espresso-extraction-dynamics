@@ -22,7 +22,7 @@
         <p class="text-sm text-stone-400">義式濃縮咖啡萃取動力學模擬器</p>
       </div>
       <div id="statusBadge" class="px-4 py-2 rounded-lg font-bold text-sm tracking-wide bg-emerald-950 text-emerald-400 border border-emerald-800">
-        萃取狀態：完美萃取 (Optimal)
+        萃取狀態：黃金萃取區間 (Balanced Sweet Spot) — 風味平衡甜美
       </div>
     </header>
 
@@ -84,12 +84,12 @@
           </div>
           <div class="bg-stone-900 p-3 rounded-xl border border-stone-800">
             <div class="text-xs text-stone-400">總產出量 (Yield)</div>
-            <div class="text-xl font-bold font-mono text-amber-300 mt-1" id="statYield">36.4 g</div>
+            <div class="text-xl font-bold font-mono text-amber-300 mt-1" id="statYield">36.8 g</div>
             <div class="text-[11px] text-stone-500 mt-0.5">粉重：18.0 g (1:2)</div>
           </div>
           <div class="bg-stone-900 p-3 rounded-xl border border-stone-800">
             <div class="text-xs text-stone-400">平均流速</div>
-            <div class="text-xl font-bold font-mono text-amber-300 mt-1" id="statFlow">1.21 ml/s</div>
+            <div class="text-xl font-bold font-mono text-amber-300 mt-1" id="statFlow">1.15 ml/s</div>
             <div class="text-[11px] text-stone-500 mt-0.5">基準：1.0 - 1.6 ml/s</div>
           </div>
           <div class="bg-stone-900 p-3 rounded-xl border border-stone-800">
@@ -130,8 +130,8 @@
     </div>
   </div>
 
+  <!-- JavaScript 核心程式碼：直接內嵌於 HTML 檔案尾端 -->
   <script>
-    // 取得 DOM 元素
     const grindInput = document.getElementById('grind');
     const tempInput = document.getElementById('temp');
     const pressureInput = document.getElementById('pressure');
@@ -147,11 +147,9 @@
     const statChannelDesc = document.getElementById('statChannelDesc');
     const statusBadge = document.getElementById('statusBadge');
 
-    // Chart.js 實例設定
     const ctxDynamics = document.getElementById('dynamicsChart').getContext('2d');
     const ctxFlavor = document.getElementById('flavorChart').getContext('2d');
 
-    // 時間陣列 (0 到 32 秒)
     const timeLabels = Array.from({ length: 33 }, (_, i) => `${i}s`);
 
     const dynamicsChart = new Chart(ctxDynamics, {
@@ -186,10 +184,7 @@
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
-          x: {
-            grid: { color: '#292524' },
-            ticks: { color: '#a8a29e' }
-          },
+          x: { grid: { color: '#292524' }, ticks: { color: '#a8a29e' } },
           yFlow: {
             type: 'linear',
             position: 'left',
@@ -247,18 +242,17 @@
       }
     });
 
-    // 物理與化學萃取模擬引擎
     function runSimulation() {
-      const grind = parseFloat(grindInput.value);      // 200 - 600 μm
-      const temp = parseFloat(tempInput.value);        // 85 - 98 °C
-      const pressure = parseFloat(pressureInput.value);// 3 - 12 bar
-      const dose = 18.0;                              // 18g 標準粉量
+      const grind = parseFloat(grindInput.value);
+      const temp = parseFloat(tempInput.value);
+      const pressure = parseFloat(pressureInput.value);
+      const dose = 18.0;
 
       grindVal.textContent = `${grind} μm`;
       tempVal.textContent = `${temp.toFixed(1)} °C`;
       pressureVal.textContent = `${pressure.toFixed(1)} bar`;
 
-      // 1. 通道效應概率判斷 (過幼 + 過高壓)
+      // 通道效應判定
       const fineThreshold = 280;
       let channelingRisk = '低';
       let channelingDesc = '粉餅萃取阻力均勻';
@@ -267,7 +261,7 @@
       if (grind < fineThreshold && pressure > 9.5) {
         channelingRisk = '極高';
         channelingDesc = '微通道形成，導致局部過度萃取與水通道擊穿';
-        channelingPenalty = 0.65; // 破壞均勻度
+        channelingPenalty = 0.65;
       } else if (grind < fineThreshold || pressure > 10.5) {
         channelingRisk = '中等';
         channelingDesc = '水流出現微偏流傾向';
@@ -280,40 +274,29 @@
         channelingRisk === '極高' ? 'text-red-500' : channelingRisk === '中等' ? 'text-amber-400' : 'text-emerald-400'
       }`;
 
-      // 2. 水力阻力與流速曲線計算
-      // 粒徑越小，基礎阻力越高；高壓(>9 bar)加劇粉餅壓實壓縮
+      // 校準後的水力阻力與流速動力學
       const puckCompaction = 1.0 + Math.max(0, pressure - 8.5) * 0.22;
-      const hydraulicResistance = Math.pow(420 / grind, 2.8) * puckCompaction;
+      const hydraulicResistance = Math.pow(460 / grind, 2.8) * puckCompaction;
       const baseFlowRate = (pressure / (hydraulicResistance * 3.6)) * 1.6;
 
       const flowPoints = [];
       const eyPoints = [];
-
       let totalLiquidOut = 0;
       let dissolvedSolutes = 0;
 
-      // 溫度溶解常數系數
-      const tempFactor = Math.exp((temp - 93) / 16);
-      const grindSurfaceFactor = Math.pow(400 / grind, 1.2);
+      const tempFactor = Math.exp((temp - 93) / 14);
+      const grindSurfaceFactor = Math.pow(380 / grind, 1.3);
 
       for (let t = 0; t <= 32; t++) {
-        // 預浸潤階段 (0-5s) 水流緩慢滲透
-        let saturationFactor = 1.0;
-        if (t <= 5) {
-          saturationFactor = Math.pow(t / 5, 2.2);
-        }
-
-        // 通道效應在後段可能使阻力崩塌流速激增
+        let saturationFactor = t <= 5 ? Math.pow(t / 5, 2.2) : 1.0;
         const instability = (channelingRisk === '極高' && t > 18) ? 1.4 : 1.0;
         const currentFlow = Math.max(0.05, baseFlowRate * saturationFactor * instability);
         flowPoints.push(Number(currentFlow.toFixed(2)));
 
         if (t > 0) {
           totalLiquidOut += currentFlow;
-          
-          // 溶出速率受未萃取物總量與溶解常數限制
-          const extractionEfficiency = (28 - (dissolvedSolutes / dose) * 100) / 28;
-          const deltaSolute = 0.055 * currentFlow * tempFactor * grindSurfaceFactor * Math.max(0, extractionEfficiency) * channelingPenalty;
+          const extractionEfficiency = Math.max(0, (28 - (dissolvedSolutes / dose) * 100) / 28);
+          const deltaSolute = 0.088 * currentFlow * tempFactor * grindSurfaceFactor * extractionEfficiency * channelingPenalty;
           dissolvedSolutes += deltaSolute;
         }
 
@@ -328,29 +311,19 @@
       statYield.textContent = `${totalLiquidOut.toFixed(1)} g`;
       statFlow.textContent = `${avgFlow.toFixed(2)} ml/s`;
 
-      // 3. 風味評估矩陣 (0 到 10 分)
-      // 明亮果酸：萃取不足(<18%)或低溫時最尖銳；完美萃取時轉化為柔和酸質
-      let acidity = 8.5 - (finalEY - 14) * 0.55 + (93 - temp) * 0.25;
-      acidity = Math.max(1, Math.min(9.8, acidity));
+      // 風味平衡雷達矩陣
+      const eyDeviation = Math.abs(finalEY - 20.1);
+      const tempDeviation = Math.abs(temp - 93.0);
 
-      // 焦糖甜感：在 19% - 21.5% 達到頂峰
-      const sweetPeakDist = Math.abs(finalEY - 20.2);
-      let sweetness = Math.max(1.5, 9.2 - (sweetPeakDist * 2.1) - (channelingRisk === '極高' ? 2.5 : 0));
+      let sweetness = Math.max(1, 9.5 - eyDeviation * 1.8 - (channelingRisk === '極高' ? 3.0 : 0));
+      let acidity = Math.max(1, 8.8 - (finalEY - 20.1) * 0.6 - (temp - 93.0) * 0.3);
+      let bitterness = Math.max(1, 8.5 - Math.max(0, finalEY - 20.1) * 0.9 - Math.max(0, temp - 93.0) * 0.4);
+      if (channelingRisk === '極高') bitterness -= 2.5;
 
-      // 烘焙苦味：隨溫度上升、萃取率超過 21% 以及微通道苦澀味急劇上升
-      let bitterness = 2.0 + Math.max(0, finalEY - 18) * 0.95 + Math.max(0, temp - 92) * 0.45;
-      if (channelingRisk === '極高') bitterness += 2.2;
-      bitterness = Math.max(1, Math.min(9.8, bitterness));
-
-      // 醇厚感 (Body)：受濃縮濃度 (TDS) 與萃取油脂乳化程度決定
       const tds = (dissolvedSolutes / Math.max(10, totalLiquidOut)) * 100;
-      let body = Math.min(9.5, Math.max(2, (tds * 0.7) + (pressure * 0.25)));
+      let body = Math.min(9.5, Math.max(2, (tds * 0.65) + (pressure * 0.3)));
+      let balance = Math.max(1, 9.6 - (eyDeviation * 1.2) - (tempDeviation * 0.2) - (channelingRisk === '極高' ? 3.0 : 0));
 
-      // 萃取均衡度 (Clarity / Balance)
-      let balance = 10 - (Math.abs(acidity - bitterness) * 0.8) - (channelingRisk === '極高' ? 3.0 : 0);
-      balance = Math.max(1.5, Math.min(9.5, balance));
-
-      // 4. 更新標籤狀態
       if (finalEY < 18.0) {
         statusBadge.textContent = '萃取狀態：萃取不足 (Under-extracted) — 偏酸、尖銳、水感';
         statusBadge.className = 'px-4 py-2 rounded-lg font-bold text-sm tracking-wide bg-amber-950 text-amber-300 border border-amber-700';
@@ -362,7 +335,6 @@
         statusBadge.className = 'px-4 py-2 rounded-lg font-bold text-sm tracking-wide bg-emerald-950 text-emerald-400 border border-emerald-800';
       }
 
-      // 5. 更新圖表
       dynamicsChart.data.datasets[0].data = flowPoints;
       dynamicsChart.data.datasets[1].data = eyPoints;
       dynamicsChart.update();
@@ -377,12 +349,10 @@
       flavorChart.update();
     }
 
-    // 綁定事件監聽
     [grindInput, tempInput, pressureInput].forEach(slider => {
       slider.addEventListener('input', runSimulation);
     });
 
-    // 初次載入執行
     runSimulation();
   </script>
 </body>
